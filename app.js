@@ -45,6 +45,15 @@ app.get('/', async (req, res) => {
   }); // response objesi, kendisine request geldiğinde render metodunu kullanarak views klasörü içindeki index dosyasını render eder yani işler.
 });
 
+// get ile gönderilen _id'yi alırken : (iki nokta) kullandık. (id yerine istediğini yazabilirsin)
+app.get('/photos/:id', async (req, res) => {
+  const photo = await Photo.findById(req.params.id)
+  // photo template'ine gidecek ve photo nesnesini gönderecek
+  res.render('photo', {
+    photo
+  });
+});
+
 app.get('/about', (req, res) => {
   res.render('about');
 });
