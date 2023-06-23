@@ -2,6 +2,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const fileUpload = require('express-fileupload');
+const methodOverride = require('method-override'); // put request'i post request'e simüle eder. ( Çünkü tarayıcı put request'i desteklemiyor. )
 const ejs = require('ejs');
 const path = require('path');
 const fs = require('fs');
@@ -35,14 +36,15 @@ app.set('view engine', 'ejs'); // ejs'nin kullanacağımız template engine olac
 app.use(express.static('public')); // static dosyaları public klasörüne koyduk
 app.use(express.urlencoded({ extended: true })); // url'deki datayı okumamızı sağlar.
 app.use(express.json()); // url'deki datayı json formatına döndürür.
-app.use(fileUpload());
+app.use(fileUpload()); // express-fileupload'u require ettik. Burada middleware fonksiyonunu yazıyoruz. ( Yukarıdakiler de öyle )
+app.use(methodOverride('_method'));
 // app.use(myLogger);
 // app.use(myLogger2);
 
 // Bu da bir middleware'dır. Dolayısıyla myLogger'da next demeseydik bu middleware'e geçiş yapamayacaktı. request -> ... <- response (noktalar middleware oluyor.)
 app.get('/', async (req, res) => {
   // res.sendFile(path.resolve(__dirname, '.temp/index.html')); // path.resolve ile dosya yolu çözümlüyoruz. __dirname -> proje klasörümün yolu.
-  const photos = await Photo.find({}).sort('-dateCreated');
+  const photos = await Photo.find({}).sort('-dateCreated'); // db'deki fotoları sondan başlayarak sıralasın. ( - bunun için var )
   res.render('index', {
     photos,
   }); // response objesi, kendisine request geldiğinde render metodunu kullanarak views klasörü içindeki index dosyasını render eder yani işler.
@@ -84,6 +86,26 @@ app.post('/photos', async (req, res) => {
     });
     res.redirect('/'); // req-> ... <-res döngüsünü bir sayfaya yönlendirerek sonlandırdık.
   });
+});
+
+app.get('/photos/edit/:id', async (req, res) => {
+  const photo = await Photo.findOne({ _id: req.params.id });
+
+  // photo'yu ilgili template'e gönderiyorum.
+  res.render('edit', {
+    photo,
+  });
+});
+
+app.put('/photos/:id', async (req, res) => {
+  const photo = await Photo.findOne({ _id: req.params.id });
+
+  photo.title = req.body.title;
+  photo.description = req.body.description;
+
+  photo.save();
+
+  res.redirect(`/photos/${req.params.id}`);
 });
 
 // Server'ın çalışması listen metodu yazıyoruz
