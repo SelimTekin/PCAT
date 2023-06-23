@@ -4,10 +4,8 @@ const mongoose = require('mongoose');
 const fileUpload = require('express-fileupload');
 const methodOverride = require('method-override'); // put request'i post request'e simüle eder. ( Çünkü tarayıcı put request'i desteklemiyor. )
 const ejs = require('ejs');
-const path = require('path');
-const fs = require('fs');
-const Photo = require('./models/Photo');
 const photoController = require('./controllers/photoControllers');
+const pageController = require('./controllers/pageControllers');
 
 // Yukarıdaki express fonksiyonunu app değişkenine atıyoruz
 const app = express();
@@ -50,71 +48,17 @@ app.use(
 app.get('/', photoController.getAllPhotos);
 
 // get ile gönderilen _id'yi alırken : (iki nokta) kullandık. (id yerine istediğini yazabilirsin)
-app.get('/photos/:id', async (req, res) => {
-  const photo = await Photo.findById(req.params.id);
-  // photo template'ine gidecek ve photo nesnesini gönderecek
-  res.render('photo', {
-    photo,
-  });
-});
+app.get('/photos/:id', photoController.getPhoto);
+app.post('/photos', photoController.createPhoto);
+app.put('/photos/:id', photoController.updatePhoto);
+app.delete('/photos/:id', photoController.deletePhoto);
 
-app.get('/about', (req, res) => {
-  res.render('about');
-});
+app.get('/about', pageController.getAboutPage);
 
-app.get('/add', (req, res) => {
-  res.render('add');
-});
+app.get('/add', pageController.getAddPage);
 
-app.post('/photos', async (req, res) => {
-  const uploadDir = 'public/uploads';
+app.get('/photos/edit/:id', pageController.getEditPage);
 
-  // exitsSync() ve mkdirSync() bunlarda Sync kullanmamızın sebebi bunu önceden yapmasını istememizdir. Yani senkron çalışsın. Klasör olmadan görseli yükleyemeyiz. existsSync() klasörün var olup olnmadığını kontrol eder.
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir);
-  }
-
-  let uploadedImage = req.files.image;
-  let uploadPath = __dirname + '/public/uploads/' + uploadedImage.name;
-
-  // resmi uploads klasörüne yüklüyoruz. (... -> spread)
-  uploadedImage.mv(uploadPath, async () => {
-    await Photo.create({
-      ...req.body, // gönderilen string inputları aldık.
-      image: '/uploads/' + uploadedImage.name,
-    });
-    res.redirect('/'); // req-> ... <-res döngüsünü bir sayfaya yönlendirerek sonlandırdık.
-  });
-});
-
-app.get('/photos/edit/:id', async (req, res) => {
-  const photo = await Photo.findOne({ _id: req.params.id });
-
-  // photo'yu ilgili template'e gönderiyorum.
-  res.render('edit', {
-    photo,
-  });
-});
-
-app.put('/photos/:id', async (req, res) => {
-  const photo = await Photo.findOne({ _id: req.params.id });
-
-  photo.title = req.body.title;
-  photo.description = req.body.description;
-
-  photo.save();
-
-  res.redirect(`/photos/${req.params.id}`);
-});
-
-app.delete('/photos/:id', async (req, res) => {
-  const photo = await Photo.findByIdAndRemove(req.params.id);
-  let deletedImage = __dirname + '/public' + photo.image;
-  fs.unlinkSync(deletedImage); // Sync kullanmamızın sebebi bu işlemi yapmadan bir alt satıra geçmesin. Senkronize çalışsın yani.
-  await Photo.findByIdAndRemove(req.params.id);
-
-  res.redirect('/');
-});
 
 // Server'ın çalışması listen metodu yazıyoruz
 const port = 3000;
