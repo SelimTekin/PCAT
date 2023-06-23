@@ -1,8 +1,10 @@
 // express sayesinde http metoları kullanabiliriz.(get, post, put, fetch, delete)
 const express = require('express');
 const mongoose = require('mongoose');
+const fileUpload = require('express-fileupload');
 const ejs = require('ejs');
 const path = require('path');
+const fs = require('fs');
 const Photo = require('./models/Photo');
 
 // Yukarıdaki express fonksiyonunu app değişkenine atıyoruz
@@ -33,24 +35,25 @@ app.set('view engine', 'ejs'); // ejs'nin kullanacağımız template engine olac
 app.use(express.static('public')); // static dosyaları public klasörüne koyduk
 app.use(express.urlencoded({ extended: true })); // url'deki datayı okumamızı sağlar.
 app.use(express.json()); // url'deki datayı json formatına döndürür.
+app.use(fileUpload());
 // app.use(myLogger);
 // app.use(myLogger2);
 
 // Bu da bir middleware'dır. Dolayısıyla myLogger'da next demeseydik bu middleware'e geçiş yapamayacaktı. request -> ... <- response (noktalar middleware oluyor.)
 app.get('/', async (req, res) => {
   // res.sendFile(path.resolve(__dirname, '.temp/index.html')); // path.resolve ile dosya yolu çözümlüyoruz. __dirname -> proje klasörümün yolu.
-  const photos = await Photo.find({});
+  const photos = await Photo.find({}).sort('-dateCreated');
   res.render('index', {
-    photos
+    photos,
   }); // response objesi, kendisine request geldiğinde render metodunu kullanarak views klasörü içindeki index dosyasını render eder yani işler.
 });
 
 // get ile gönderilen _id'yi alırken : (iki nokta) kullandık. (id yerine istediğini yazabilirsin)
 app.get('/photos/:id', async (req, res) => {
-  const photo = await Photo.findById(req.params.id)
+  const photo = await Photo.findById(req.params.id);
   // photo template'ine gidecek ve photo nesnesini gönderecek
   res.render('photo', {
-    photo
+    photo,
   });
 });
 
@@ -63,8 +66,24 @@ app.get('/add', (req, res) => {
 });
 
 app.post('/photos', async (req, res) => {
-  await Photo.create(req.body);
-  res.redirect('/'); // req-> ... <-res döngüsünü bir sayfaya yönlendirerek sonlandırdık.
+  const uploadDir = 'public/uploads';
+
+  // exitsSync() ve mkdirSync() bunlarda Sync kullanmamızın sebebi bunu önceden yapmasını istememizdir. Yani senkron çalışsın. Klasör olmadan görseli yükleyemeyiz. existsSync() klasörün var olup olnmadığını kontrol eder.
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir);
+  }
+
+  let uploadedImage = req.files.image;
+  let uploadPath = __dirname + '/public/uploads/' + uploadedImage.name;
+
+  // resmi uploads klasörüne yüklüyoruz. (... -> spread)
+  uploadedImage.mv(uploadPath, async () => {
+    await Photo.create({
+      ...req.body, // gönderilen string inputları aldık.
+      image: '/uploads/' + uploadedImage.name,
+    });
+    res.redirect('/'); // req-> ... <-res döngüsünü bir sayfaya yönlendirerek sonlandırdık.
+  });
 });
 
 // Server'ın çalışması listen metodu yazıyoruz
