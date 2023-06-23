@@ -7,6 +7,7 @@ const ejs = require('ejs');
 const path = require('path');
 const fs = require('fs');
 const Photo = require('./models/Photo');
+const photoController = require('./controllers/photoControllers');
 
 // Yukarıdaki express fonksiyonunu app değişkenine atıyoruz
 const app = express();
@@ -37,18 +38,16 @@ app.use(express.static('public')); // static dosyaları public klasörüne koydu
 app.use(express.urlencoded({ extended: true })); // url'deki datayı okumamızı sağlar.
 app.use(express.json()); // url'deki datayı json formatına döndürür.
 app.use(fileUpload()); // express-fileupload'u require ettik. Burada middleware fonksiyonunu yazıyoruz. ( Yukarıdakiler de öyle )
-app.use(methodOverride('_method'));
+app.use(
+  methodOverride('_method', {
+    methods: ['GET', 'POST'],
+  })
+); // Sadece post ile gelen veriler değil get ile gelen veriler de override edilebilsin.
 // app.use(myLogger);
 // app.use(myLogger2);
 
 // Bu da bir middleware'dır. Dolayısıyla myLogger'da next demeseydik bu middleware'e geçiş yapamayacaktı. request -> ... <- response (noktalar middleware oluyor.)
-app.get('/', async (req, res) => {
-  // res.sendFile(path.resolve(__dirname, '.temp/index.html')); // path.resolve ile dosya yolu çözümlüyoruz. __dirname -> proje klasörümün yolu.
-  const photos = await Photo.find({}).sort('-dateCreated'); // db'deki fotoları sondan başlayarak sıralasın. ( - bunun için var )
-  res.render('index', {
-    photos,
-  }); // response objesi, kendisine request geldiğinde render metodunu kullanarak views klasörü içindeki index dosyasını render eder yani işler.
-});
+app.get('/', photoController.getAllPhotos);
 
 // get ile gönderilen _id'yi alırken : (iki nokta) kullandık. (id yerine istediğini yazabilirsin)
 app.get('/photos/:id', async (req, res) => {
@@ -106,6 +105,15 @@ app.put('/photos/:id', async (req, res) => {
   photo.save();
 
   res.redirect(`/photos/${req.params.id}`);
+});
+
+app.delete('/photos/:id', async (req, res) => {
+  const photo = await Photo.findByIdAndRemove(req.params.id);
+  let deletedImage = __dirname + '/public' + photo.image;
+  fs.unlinkSync(deletedImage); // Sync kullanmamızın sebebi bu işlemi yapmadan bir alt satıra geçmesin. Senkronize çalışsın yani.
+  await Photo.findByIdAndRemove(req.params.id);
+
+  res.redirect('/');
 });
 
 // Server'ın çalışması listen metodu yazıyoruz
